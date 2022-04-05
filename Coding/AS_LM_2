@@ -1,0 +1,52 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar  8 00:21:44 2022
+
+@author: 17204
+"""
+#Active Subspaces Using Local Linear Models
+# alpha:= Sampling factor 1 (should be between (2,10) = 10
+# beta := Over Sampling factor 2 (1,\inty)
+# m:= Dimension of input space
+# k:= Maximum dimension +1 we wish to work with after applying AS
+# N:= Local regression samples = beta*alpha*m 
+# M:= Fixed point samples:=alpha*k*log(m)
+# p:= Number of points to form local linear models with
+# q:= quantity of interest from model a given model
+
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.decomposition import PCA
+
+alpha = 10
+beta = 10
+k = 3
+m = 3
+N = beta*alpha*m
+M = alpha*k*np.log(m)
+p = m+1
+
+
+mu = np.array([0,0.1,0.3])
+#Covariance arra
+cov_m_r = np.array([[1,0.94,0.01],[0.94,1,0], [0.01,0,1]])
+
+X_M = np.random.multivariate_normal(mu, cov_m_r, int(np.ceil(M)))
+X_N = np.random.multivariate_normal(mu, cov_m_r,N)
+
+#Finding all distance between points in X_M and X_N
+local = [[]]
+for j in range(X_M.shape[0]):
+    for i in range(X_N.shape[0]):
+        temp = 
+        temp_dis = np.linalg.norm(X_N[i,:] - X_M[j,:])
+        temp_dis.sort()
+        temp_dis = temp_dis[0:20]
+        local = np.append(local, temp_dis)
+        
+        
+        print(np.linalg.norm(X_N[i,:] - X_M[1]))
+
+    
