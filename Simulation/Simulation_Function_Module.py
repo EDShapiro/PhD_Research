@@ -29,60 +29,79 @@ def imp_data(rho_data, depth_data):
     #Creating column names of indices from 1 to # of profiles 
     return s_rmd_rho, s_rmd_thk
 
-
  
-def sim_empymod_data( rho_data, depth, verb, ab, freq, xdirect,
-                      fx, fy,  heights, save_path, save_data = False):
-     
-     n_freq = freq.shape[0]
-     n_rec = fx.shape[0]
-     
-     # dim_0 = s_rmd_rho.shape[1]
-     
-     fEMBG_arr = np.zeros( 2*n_freq*n_rec + 1)
-     
-     # for i in range( 0, dim_0):
-         
-     t_h = heights[0]
-     r_h = t_h
-     fEMBG_arr[0] = t_h
-     
-     inpdat = {'src': [0, 0, t_h], 'rec': [fx, fy, r_h], 'depth': depth,
-             'freqtime': freq, 'ab': ab, 'xdirect': xdirect,
-             'htarg': {'pts_per_dec': -1}, 'verb': verb}
+def sim_empymod_data(rho_data, inp_data, save_path, mod_type, save_data=False):
     
-     fEMBG = empymod.dipole(**inpdat, res = rho_data)
     
-     if n_rec == 1:
-         for k in range(0,n_freq):
-             fEMBG[k] = 1j*8*np.pi**2*1e-7*freq[k]*fEMBG[k]
-            
-     if n_rec > 1:
-           for k in range(0,n_freq):
-               fEMBG[k,:] = 1j*8*np.pi**2*1e-7*freq[k]*fEMBG[k,:]
+    freq = inp_data['freqtime'][0]
+    n_freq = inp_data['freqtime'].shape[0]
+    n_rec = inp_data['rec'][0].shape[0]
+    
+    # 1. Initialize array for fEM data heights
+    fEMBG_arr = np.zeros(2 * n_freq * n_rec )
+    # fEMBG_arr[0] = inp_data['rec'][2][0]
+
+    # 2. Run the Simulation (Moved up so fEMBG exists before use)
+    if mod_type == 'dipole':
+        # inp_data = {
+        #     'src': [0, 0, t_h], 
+        #     'rec': [fx, fy, r_h], 
+        #     'depth': depth,
+        #     'freqtime': freq, 
+        #     'ab': ab, 
+        #     'xdirect': xdirect,
+        #     'htarg': {'pts_per_dec': -1}, 
+        #     'verb': verb
+        # }
         
-     fEMBG_real = fEMBG.real
-     fEMBG_imag = fEMBG.imag
-     for k in range(0,n_freq):
-         for m in range(0,n_rec):
-            #Array structure: 
-            #[Amplitude of 1Hz response @ Receiver_1,
-            #Amplitude of 1Hz response @ Receiver_2,
-            #Amplitude of 1Hz response @ Receiver_3,
-            #Amplitude of 10Hz response @ Receiver_1,...]
-            if n_rec == 1:
-                fEMBG_arr[1 + 2*m + 2*n_rec*k] = fEMBG_real[k]
-                fEMBG_arr[2 + 2*m + 2*n_rec*k] = fEMBG_imag[k]
-                
-            if n_rec > 1:
-                fEMBG_arr[1 + 2*m + 2*n_rec*k] = fEMBG_real[k,m]
-                fEMBG_arr[2 + 2*m + 2*n_rec*k] = fEMBG_imag[k,m]
+        fEMBG = empymod.dipole(**inp_data, res=rho_data)
+        
+        # Apply physics corrections
+        if n_rec == 1:
+            for k in range(n_freq):
+                fEMBG[k] = 1j * 8 * np.pi**2 * 1e-7 * freq[k] * fEMBG[k]
+        else:
+            for k in range(n_freq):
+                fEMBG[k, :] = 1j * 8 * np.pi**2 * 1e-7 * freq[k] * fEMBG[k, :]
+
+    elif mod_type == 'ratio':
+        # inp_data = {
+        #     'src': [0, 0, t_h], 
+        #     'rec': [fx, fy, r_h], 
+        #     'depth': depth,
+        #     'freqtime': freq, 
+        #     'ab': ab, 
+        #     'verb': verb, 
+        #     'htarg': {'pts_per_dec': -1}
+        # }
+        fEMBG = empymod.model.ip_and_q(**inp_data, res=rho_data)
+        
+    # 3. Format the results into the output array
+    fEM_real = fEMBG[0]
+    fEM_imag = fEMBG[1]
     
-     # if save_data:
-     #     np.save(save_path, fEMBG_arr)
-     end = time.time()
-     # print('Simulation Finished Run time:', end - start)
-     return fEMBG_arr
+    if n_freq > 1:
+        for k in range(n_freq):
+            for m in range(n_rec):
+                # Calculate index: 1 (offset) + 2*m (receiver pair) + 2*n_rec*k (frequency block)
+                idx_real = 1 + 2 * m + 2 * n_rec * k
+                idx_imag = 2 + 2 * m + 2 * n_rec * k
+                
+                if n_rec == 1:
+                    fEMBG_arr[idx_real] = fEM_real[k]
+                    fEMBG_arr[idx_imag] = fEM_imag[k]
+                else:
+                    fEMBG_arr[idx_real] = fEM_real[k, m]
+                    fEMBG_arr[idx_imag] = fEM_imag[k, m]
+    else:
+        fEMBG_arr[0] = fEM_real
+        fEMBG_arr[1] = fEM_imag
+
+    # 4. Finalize
+    if save_data:
+        np.save(save_path, fEMBG_arr)
+
+    return fEMBG_arr
  
 
 def Res_Freq_Split(h_list, data_path, n_r, save_data_path, rec_config):   
